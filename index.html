@@ -747,7 +747,11 @@
             mqttPublish(`asrs/cmd/jog/${axis.toLowerCase()}_${dir==='+'?'plus':'minus'}`, { active: true });
             document.getElementById('lblCurrentStep').innerText = `JOG: ${axis}${dir}`;
         }
-        function jogStop() { S.sim.jogCmd = {}; document.getElementById('lblCurrentStep').innerText = `IDLE`; }
+        function jogStop() { 
+            S.sim.jogCmd = {}; 
+            document.getElementById('lblCurrentStep').innerText = `IDLE`; 
+            mqttPublish('asrs/cmd/jog/stop', { active: true });
+        }
         
         function conveyorTest(dir) {
             if(S.mode.auto || S.mode.estop || !checkPerm('Engineer')) return;
