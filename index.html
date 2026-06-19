@@ -813,7 +813,9 @@ const S = {
         connected: false
     },
     alarms: [], events: [],
-    conv: 'STOP'
+    conv: 'STOP',
+    _modeLock: false,       // prevents server sync from overriding local mode change
+    _modeLockTimer: null
 };
 
 let mqttClient = null;
@@ -908,7 +910,8 @@ function setupMQTT() {
                 handlePlcData(data);
             } else if (topic === 'warehouse/maintenance_mode') {
                 const active = data.active === true || data.active === 'true';
-                if (active !== S.mode.manual) {
+                // Ignore server sync for 5s after a local mode change (prevents flip-flop)
+                if (active !== S.mode.manual && !S._modeLock) {
                     S.mode.manual = active;
                     updateModeUI();
                     logEvent('INFO', `Mode sync from server: ${active ? 'MANUAL' : 'AUTO'}`);
@@ -970,6 +973,10 @@ function changeMode(m) {
     S.mode.manual = (m === 'MANUAL');
     updateModeUI();
     logEvent('INFO', `Mode change commanded: ${m}`);
+    // Lock mode sync from server for 5 seconds to prevent flip-flop
+    S._modeLock = true;
+    if (S._modeLockTimer) clearTimeout(S._modeLockTimer);
+    S._modeLockTimer = setTimeout(() => { S._modeLock = false; }, 5000);
 }
 
 function updateModeUI() {
@@ -997,46 +1004,19 @@ function updateModeUI() {
 }
 
 // ── JOG CONTROL ───────────────────────────────────────────────────────────────
-// Simulated position for local visual feedback when PLC is offline
-const SIM = { x: 0, y: 0, z: 0, jogTimer: null, axis: null, dir: null };
-const JOG_SPEED = { X: 80, Y: 40, Z: 60 };   // mm/s simulated
-const AXIS_LIMITS = { X: [0, 500], Y: [0, 135], Z: [0, 430] };
-
-function simTick() {
-    if (!SIM.axis) return;
-    const speed = JOG_SPEED[SIM.axis] * 0.05;   // 50ms interval
-    const delta = SIM.dir === '+' ? speed : -speed;
-    const ax    = SIM.axis.toLowerCase();
-    const lim   = AXIS_LIMITS[SIM.axis];
-    SIM[ax] = Math.max(lim[0], Math.min(lim[1], SIM[ax] + delta));
-    // Only drive SVG from sim if PLC is offline
-    if (!S.plc.connected) {
-        S.plc.pos_x = SIM.x; S.plc.pos_y = SIM.y; S.plc.pos_z = SIM.z;
-        updateSvg();
-        document.getElementById('posX').textContent = SIM.x.toFixed(1);
-        document.getElementById('posY').textContent = SIM.y.toFixed(1);
-        document.getElementById('posZ').textContent = SIM.z.toFixed(1);
-    }
-}
-
+// SVG updates are driven by real PLC data received via warehouse/plc_data topic
 function jogStart(axis, dir) {
     if (!S.mode.manual || S.mode.estop) return;
     if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
     mqttPublish('warehouse/command', { action: 'JOG_START', axis, dir });
     document.getElementById('lblCurrentStep').textContent = `JOG ${axis}${dir}`;
     logEvent('INFO', `Jog ${axis}${dir} START`);
-    // Start local simulation
-    SIM.axis = axis; SIM.dir = dir;
-    if (!SIM.jogTimer) SIM.jogTimer = setInterval(simTick, 50);
 }
 
 function jogStop() {
     if (!S.mode.manual) return;
     mqttPublish('warehouse/command', { action: 'JOG_STOP' });
     document.getElementById('lblCurrentStep').textContent = 'IDLE';
-    // Stop simulation
-    SIM.axis = null; SIM.dir = null;
-    if (SIM.jogTimer) { clearInterval(SIM.jogTimer); SIM.jogTimer = null; }
 }
 
 // ── CONVEYOR ──────────────────────────────────────────────────────────────────
@@ -1169,12 +1149,12 @@ function drawSlotBoxes() {
 
 function updateSvg() {
     const p = S.plc;
-    // Use actual position or fall back to simulated (SIM) so home is always visible
-    const posX = (typeof p.pos_x === 'number') ? p.pos_x : SIM.x;
-    const posY = (typeof p.pos_y === 'number') ? p.pos_y : SIM.y;
-    const posZ = (typeof p.pos_z === 'number') ? p.pos_z : SIM.z;
+    // Use PLC position; default to 0 (home) if no data yet so crane renders at startup
+    const posX = (typeof p.pos_x === 'number') ? p.pos_x : 0;
+    const posY = (typeof p.pos_y === 'number') ? p.pos_y : 0;
+    const posZ = (typeof p.pos_z === 'number') ? p.pos_z : 0;
 
-    const svgZ  = SVG_MAP.z(posZ);         // z=0 → beam rests at conveyor level
+    const svgZ  = SVG_MAP.z(posZ);         // z=0 → beam rests at conveyor level (bottom-left)
     const svgX  = SVG_MAP.x(posX);         // x=0 → carriage at left rail
     const forkW = 8 + (posY / 135) * 40;
 
@@ -1228,13 +1208,11 @@ function updateChart() {
     const now = Date.now();
     if (now - lastChartTime < chartInterval) return;
     lastChartTime = now;
-    // Use real PLC position if connected, otherwise use simulated position
-    const px = S.plc.connected ? S.plc.pos_x : SIM.x;
-    const py = S.plc.connected ? S.plc.pos_y : SIM.y;
-    const pz = S.plc.connected ? S.plc.pos_z : SIM.z;
-    dX.push(px); dX.shift();
-    dY.push(py); dY.shift();
-    dZ.push(pz); dZ.shift();
+    // Only plot when PLC is sending real data
+    const p = S.plc;
+    dX.push(p.connected ? p.pos_x : null); dX.shift();
+    dY.push(p.connected ? p.pos_y : null); dY.shift();
+    dZ.push(p.connected ? p.pos_z : null); dZ.shift();
     chart.update();
 }
 
