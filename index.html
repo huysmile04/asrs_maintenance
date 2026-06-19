@@ -861,6 +861,8 @@ function checkPerm(required) {
 let _connLostTimer = null;
 
 function setupMQTT() {
+    if (mqttClient) return; // Ngăn tạo nhiều kết nối trùng lặp
+    MQTT_OPTS.clientId = 'maint_' + Math.random().toString(16).substr(2, 8);
     mqttClient = mqtt.connect(MQTT_URL, MQTT_OPTS);
 
     mqttClient.on('connect', () => {
@@ -1297,8 +1299,11 @@ function initApp() {
     if (lblUser) lblUser.textContent = 'admin';
     if (lblRole) lblRole.textContent = 'Admin';
 
-    setupMQTT();
-    initChart();
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay) loginOverlay.classList.remove('show');
+
+    if (!mqttClient) setupMQTT();
+    if (!chart) initChart();
     updateModeUI();
     // Initial alarm: axes not homed
     raiseAlarm('16#8001', 'WARNING', 'System startup \u2014 axes not homed');
