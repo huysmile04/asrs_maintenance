@@ -856,14 +856,18 @@ function checkPerm(required) {
 }
 
 // ── MQTT ──────────────────────────────────────────────────────────────────────
+let _connLostTimer = null;
+
 function setupMQTT() {
     mqttClient = mqtt.connect(MQTT_URL, MQTT_OPTS);
 
     mqttClient.on('connect', () => {
         S.mqtt.connected = true;
+        // Cancel any pending connection-lost overlay
+        if (_connLostTimer) { clearTimeout(_connLostTimer); _connLostTimer = null; }
         document.getElementById('lblMqtt').textContent  = 'ONLINE';
         document.getElementById('lblMqtt').style.color  = 'var(--cyan)';
-        document.getElementById('ledMqtt').className    = 'led green';
+        document.getElementById('ledMqtt').className    = 'led green pulse';
         document.getElementById('connLostOverlay').classList.remove('show');
 
         mqttClient.subscribe([
@@ -875,17 +879,25 @@ function setupMQTT() {
             'warehouse/history_init'
         ]);
         logEvent('INFO', 'Connected to MQTT broker');
-        // Request current state
         mqttPublish('warehouse/command', { action: 'GET_STATUS' });
     });
 
+    // Debounce: only show CONNECTION LOST overlay after 4s of being offline
+    // (avoids flicker during brief reconnects)
     mqttClient.on('close', () => {
         S.mqtt.connected = false;
         document.getElementById('lblMqtt').textContent  = 'OFFLINE';
         document.getElementById('lblMqtt').style.color  = 'var(--red)';
         document.getElementById('ledMqtt').className    = 'led red';
-        document.getElementById('connLostOverlay').classList.add('show');
-        logEvent('CRITICAL', 'MQTT connection lost');
+        if (!_connLostTimer) {
+            _connLostTimer = setTimeout(() => {
+                _connLostTimer = null;
+                if (!S.mqtt.connected) {
+                    document.getElementById('connLostOverlay').classList.add('show');
+                    logEvent('CRITICAL', 'MQTT connection lost');
+                }
+            }, 4000);
+        }
     });
 
     mqttClient.on('message', (topic, payload) => {
@@ -895,7 +907,6 @@ function setupMQTT() {
             if (topic === 'warehouse/plc_data') {
                 handlePlcData(data);
             } else if (topic === 'warehouse/maintenance_mode') {
-                // Sync mode from authoritative source
                 const active = data.active === true || data.active === 'true';
                 if (active !== S.mode.manual) {
                     S.mode.manual = active;
@@ -986,18 +997,46 @@ function updateModeUI() {
 }
 
 // ── JOG CONTROL ───────────────────────────────────────────────────────────────
+// Simulated position for local visual feedback when PLC is offline
+const SIM = { x: 0, y: 0, z: 0, jogTimer: null, axis: null, dir: null };
+const JOG_SPEED = { X: 80, Y: 40, Z: 60 };   // mm/s simulated
+const AXIS_LIMITS = { X: [0, 500], Y: [0, 135], Z: [0, 430] };
+
+function simTick() {
+    if (!SIM.axis) return;
+    const speed = JOG_SPEED[SIM.axis] * 0.05;   // 50ms interval
+    const delta = SIM.dir === '+' ? speed : -speed;
+    const ax    = SIM.axis.toLowerCase();
+    const lim   = AXIS_LIMITS[SIM.axis];
+    SIM[ax] = Math.max(lim[0], Math.min(lim[1], SIM[ax] + delta));
+    // Only drive SVG from sim if PLC is offline
+    if (!S.plc.connected) {
+        S.plc.pos_x = SIM.x; S.plc.pos_y = SIM.y; S.plc.pos_z = SIM.z;
+        updateSvg();
+        document.getElementById('posX').textContent = SIM.x.toFixed(1);
+        document.getElementById('posY').textContent = SIM.y.toFixed(1);
+        document.getElementById('posZ').textContent = SIM.z.toFixed(1);
+    }
+}
+
 function jogStart(axis, dir) {
     if (!S.mode.manual || S.mode.estop) return;
     if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
     mqttPublish('warehouse/command', { action: 'JOG_START', axis, dir });
     document.getElementById('lblCurrentStep').textContent = `JOG ${axis}${dir}`;
     logEvent('INFO', `Jog ${axis}${dir} START`);
+    // Start local simulation
+    SIM.axis = axis; SIM.dir = dir;
+    if (!SIM.jogTimer) SIM.jogTimer = setInterval(simTick, 50);
 }
 
 function jogStop() {
     if (!S.mode.manual) return;
     mqttPublish('warehouse/command', { action: 'JOG_STOP' });
     document.getElementById('lblCurrentStep').textContent = 'IDLE';
+    // Stop simulation
+    SIM.axis = null; SIM.dir = null;
+    if (SIM.jogTimer) { clearInterval(SIM.jogTimer); SIM.jogTimer = null; }
 }
 
 // ── CONVEYOR ──────────────────────────────────────────────────────────────────
@@ -1109,25 +1148,16 @@ function updatePlcUI() {
 }
 
 // ── SVG KINEMATIC ─────────────────────────────────────────────────────────────
+// Physical: pos_x=0 → left rail, pos_z=0 → bottom (on conveyor)
+// SVG viewBox 0 0 900 520; conveyor top ≈ y=468, rails bottom ≈ y=490
+// Beam translateY: z=0 → beam near conveyor (svgY ≈ 456), z=max → top (svgY ≈ 20)
 const SVG_LIMITS = { x: 500, z: 430 };
 const SVG_MAP = {
-    x: v => 30 + (v / SVG_LIMITS.x) * 840,
-    z: v => 470 - (v / SVG_LIMITS.z) * 380
+    x: v =>  37 + (v / SVG_LIMITS.x) * 816,   // 37=left edge, 853=right edge
+    z: v => 456 - (v / SVG_LIMITS.z) * 436    // z=0 → y=456 (conveyor level), z=max → y=20
 };
 
-function updateSvg() {
-    const p = S.plc;
-    if (typeof p.pos_x !== 'number') return;
-
-    const svgZ = SVG_MAP.z(p.pos_z);
-    const svgX = SVG_MAP.x(p.pos_x);
-    const forkW = 8 + (p.pos_y / 135) * 40;
-
-    document.getElementById('svgLiftBeam').style.transform = `translate(0,${svgZ}px)`;
-    document.getElementById('svgCarriage').style.transform  = `translate(${svgX}px,0)`;
-    document.getElementById('svgFork').style.width          = `${forkW}px`;
-
-    // Slot boxes
+function drawSlotBoxes() {
     let rects = '';
     SLOTS.forEach((sl, i) => {
         const cx = SVG_MAP.x(sl.x) - 40;
@@ -1137,11 +1167,29 @@ function updateSvg() {
     document.getElementById('svgSlots').innerHTML = rects;
 }
 
+function updateSvg() {
+    const p = S.plc;
+    // Use actual position or fall back to simulated (SIM) so home is always visible
+    const posX = (typeof p.pos_x === 'number') ? p.pos_x : SIM.x;
+    const posY = (typeof p.pos_y === 'number') ? p.pos_y : SIM.y;
+    const posZ = (typeof p.pos_z === 'number') ? p.pos_z : SIM.z;
+
+    const svgZ  = SVG_MAP.z(posZ);         // z=0 → beam rests at conveyor level
+    const svgX  = SVG_MAP.x(posX);         // x=0 → carriage at left rail
+    const forkW = 8 + (posY / 135) * 40;
+
+    document.getElementById('svgLiftBeam').style.transform = `translate(0,${svgZ}px)`;
+    document.getElementById('svgCarriage').style.transform  = `translate(${svgX}px,0)`;
+    document.getElementById('svgFork').style.width          = `${forkW}px`;
+}
+
 // ── CHART ──────────────────────────────────────────────────────────────────────
 function initApp() {
     setupMQTT();
     initChart();
     updateModeUI();
+    drawSlotBoxes();    // Draw rack slot boxes once (they don’t change)
+    updateSvg();        // Show crane at home position immediately on load
     // Initial alarm: axes not homed
     raiseAlarm('16#8001', 'WARNING', 'System startup — axes not homed');
     logEvent('INFO', 'Maintenance Console initialized');
@@ -1180,10 +1228,13 @@ function updateChart() {
     const now = Date.now();
     if (now - lastChartTime < chartInterval) return;
     lastChartTime = now;
-    const p = S.plc;
-    dX.push(p.pos_x); dX.shift();
-    dY.push(p.pos_y); dY.shift();
-    dZ.push(p.pos_z); dZ.shift();
+    // Use real PLC position if connected, otherwise use simulated position
+    const px = S.plc.connected ? S.plc.pos_x : SIM.x;
+    const py = S.plc.connected ? S.plc.pos_y : SIM.y;
+    const pz = S.plc.connected ? S.plc.pos_z : SIM.z;
+    dX.push(px); dX.shift();
+    dY.push(py); dY.shift();
+    dZ.push(pz); dZ.shift();
     chart.update();
 }
 
@@ -1254,6 +1305,9 @@ setInterval(() => {
     document.getElementById('clock').textContent = d.toTimeString().split(' ')[0];
     document.getElementById('date').textContent  = d.toISOString().split('T')[0];
 }, 1000);
+
+// Chart update timer — runs independently so chart works even without PLC data
+setInterval(() => { if (typeof updateChart === 'function') updateChart(); }, 500);
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function initApp() {
