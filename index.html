@@ -1136,6 +1136,15 @@ function updateSvg() {
 }
 
 // ── CHART ──────────────────────────────────────────────────────────────────────
+function initApp() {
+    setupMQTT();
+    initChart();
+    updateModeUI();
+    // Initial alarm: axes not homed
+    raiseAlarm('16#8001', 'WARNING', 'System startup — axes not homed');
+    logEvent('INFO', 'Maintenance Console initialized');
+}
+
 let chart; let chartPaused = false; let chartInterval = 1000; let lastChartTime = 0;
 const maxPts = 80;
 const dX = Array(maxPts).fill(null), dY = Array(maxPts).fill(null), dZ = Array(maxPts).fill(null);
@@ -1246,13 +1255,24 @@ setInterval(() => {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function initApp() {
+    // Auto-login as Admin — no login screen needed
+    S.auth.user = 'admin';
+    S.auth.role = 'Admin';
+    const lblUser = document.getElementById('lblUser');
+    const lblRole = document.getElementById('lblRole');
+    if (lblUser) lblUser.textContent = 'admin';
+    if (lblRole) lblRole.textContent = 'Admin';
+
     setupMQTT();
     initChart();
     updateModeUI();
     // Initial alarm: axes not homed
-    raiseAlarm('16#8001', 'WARNING', 'System startup — axes not homed');
-    logEvent('INFO', 'Maintenance Console initialized');
+    raiseAlarm('16#8001', 'WARNING', 'System startup \u2014 axes not homed');
+    logEvent('INFO', 'Maintenance Console initialized (Auto Admin)');
 }
+
+// Khởi động ngay khi trang load — không cần login
+window.addEventListener('DOMContentLoaded', () => { initApp(); });
 
 // Conveyor belt animation
 const style = document.createElement('style');
