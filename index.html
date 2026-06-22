@@ -886,6 +886,47 @@
                 </div>
             </div>
 
+            <!-- Absolute Position Control -->
+            <div class="panel" style="flex-shrink:0;">
+                <div class="panel-header">ABSOLUTE POSITION CONTROL</div>
+                <div class="panel-body gap-8">
+                    <!-- X Axis -->
+                    <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
+                        <div class="section-label">X Axis</div>
+                        <div class="flex-row">
+                            <input type="number" id="xPosInput" placeholder="X pos">
+                            <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('X')">RUN</button>
+                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('X')">HOME</button>
+                        </div>
+                    </div>
+                    <!-- Y Axis -->
+                    <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
+                        <div class="section-label">Y Axis</div>
+                        <div class="flex-row">
+                            <input type="number" id="yPosInput" placeholder="Y pos">
+                            <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('Y')">RUN</button>
+                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('Y')">HOME</button>
+                        </div>
+                    </div>
+                    <!-- Z Axis -->
+                    <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
+                        <div class="section-label">Z Axis</div>
+                        <div class="flex-row">
+                            <input type="number" id="zPosInput" placeholder="Z pos">
+                            <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('Z')">RUN</button>
+                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('Z')">HOME</button>
+                        </div>
+                    </div>
+                    <!-- All Axes -->
+                    <div style="padding-top:4px;">
+                        <div class="flex-row">
+                            <button class="btn btn-jog btn-abs" style="background:rgba(32, 201, 151, 0.1); color:var(--cyan); border-color:var(--cyan);" onclick="runAllAxes()">RUN ALL XYZ</button>
+                            <button class="btn btn-jog btn-abs" style="background:rgba(250, 82, 82, 0.1); color:var(--red); border-color:var(--red);" onclick="homeAllAxes()">HOME ALL</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Slot Map -->
             <div class="panel" style="flex-shrink:0;">
                 <div class="panel-header">9-SLOT RACK MAP</div>
@@ -1349,6 +1390,7 @@
                         const el = document.getElementById(id);
                         if (el) el.disabled = true;
                     });
+                document.querySelectorAll('.btn-abs').forEach(b => b.disabled = true);
             }
         }
 
@@ -1498,7 +1540,7 @@
                 : '<strong style="color:var(--cyan);">AUTO MODE:</strong> PLC runs the automated cycle. User website is active.';
 
             // Enable/disable jog + slot buttons based on mode
-            const jogs = document.querySelectorAll('#jogXm,#jogXp,#jogYm,#jogYp,#jogZm,#jogZp,#btnFwd,#btnRev');
+            const jogs = document.querySelectorAll('#jogXm,#jogXp,#jogYm,#jogYp,#jogZm,#jogZp,#btnFwd,#btnRev,.btn-abs');
             jogs.forEach(b => { if (!b.disabled || manual) b.disabled = !manual || !checkPerm('Engineer'); });
 
             const slotBtns = document.querySelectorAll('#slotGrid .slot-btn');
@@ -1530,6 +1572,41 @@
 
             mqttPublish('warehouse/command', { action: 'JOG_STOP' });
             document.getElementById('lblCurrentStep').textContent = 'IDLE';
+        }
+
+        // ── ABSOLUTE POSITION CONTROL ─────────────────────────────────────────────────
+        function runAxis(axis) {
+            if (!S.mode.manual || S.mode.estop) return;
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            const val = document.getElementById(axis.toLowerCase() + 'PosInput').value;
+            if (val === '') { alert(`Vui lòng nhập vị trí trục ${axis}`); return; }
+            mqttPublish('warehouse/command', { action: 'MOVE_AXIS', axis: axis, position: Number(val) });
+            logEvent('INFO', `Run ${axis} to ${val}`);
+        }
+
+        function homeAxis(axis) {
+            if (!S.mode.manual || S.mode.estop) return;
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            mqttPublish('warehouse/command', { action: 'HOME_AXIS', axis: axis });
+            logEvent('INFO', `Home ${axis}`);
+        }
+
+        function runAllAxes() {
+            if (!S.mode.manual || S.mode.estop) return;
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            const x = document.getElementById('xPosInput').value;
+            const y = document.getElementById('yPosInput').value;
+            const z = document.getElementById('zPosInput').value;
+            if (x === '' || y === '' || z === '') { alert('Vui lòng nhập vị trí cả 3 trục'); return; }
+            mqttPublish('warehouse/command', { action: 'MOVE_XYZ', x: Number(x), y: Number(y), z: Number(z) });
+            logEvent('INFO', `Run All XYZ to ${x}, ${y}, ${z}`);
+        }
+
+        function homeAllAxes() {
+            if (!S.mode.manual || S.mode.estop) return;
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            mqttPublish('warehouse/command', { action: 'HOME_ALL' });
+            logEvent('INFO', `Home All XYZ`);
         }
 
         // ── CONVEYOR ──────────────────────────────────────────────────────────────────
