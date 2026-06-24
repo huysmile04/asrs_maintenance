@@ -1219,22 +1219,16 @@
                     <hr class="divider">
                     <div class="section-label">Sensors</div>
                     <div class="io-row">
-                        <div class="led" id="io_home_x"></div><span class="io-label">Home X</span>
+                        <div class="led" id="io_home_x"></div><span class="io-label">Limit Switch X</span>
                     </div>
                     <div class="io-row">
-                        <div class="led" id="io_home_y"></div><span class="io-label">Home Y (Fork)</span>
+                        <div class="led" id="io_home_y"></div><span class="io-label">Limit Switch Y (Fork)</span>
                     </div>
                     <div class="io-row">
-                        <div class="led" id="io_home_z"></div><span class="io-label">Home Z</span>
+                        <div class="led" id="io_home_z"></div><span class="io-label">Limit Switch Z</span>
                     </div>
                     <div class="io-row">
-                        <div class="led" id="io_end_x"></div><span class="io-label">End X</span>
-                    </div>
-                    <div class="io-row">
-                        <div class="led" id="io_end_z"></div><span class="io-label">End Z</span>
-                    </div>
-                    <div class="io-row">
-                        <div class="led" id="io_fork_ext"></div><span class="io-label">Fork Extended</span>
+                        <div class="led" id="io_end_z"></div><span class="io-label">Limit Switch End Z</span>
                     </div>
 
                     <hr class="divider">
@@ -1296,9 +1290,7 @@
                                 <td>
                                     <div class="led" id="diag_home_x"></div>
                                 </td>
-                                <td>
-                                    <div class="led" id="diag_end_x"></div>
-                                </td>
+                                <td>—</td>
                                 <td>—</td>
                             </tr>
                             <tr>
@@ -1782,9 +1774,7 @@
             led('io_home_x', p.sensor_home_x);
             led('io_home_y', p.sensor_home_y);
             led('io_home_z', p.sensor_home_z);
-            led('io_end_x', p.sensor_end_x, 'amber');
             led('io_end_z', p.sensor_end_z, 'amber');
-            led('io_fork_ext', p.sensor_fork_ext, 'amber');
 
             // Motors
             led('io_motor_import', p.motor_import, 'amber');
@@ -1792,7 +1782,6 @@
 
             // Diagnostics table
             led('diag_home_x', p.sensor_home_x);
-            led('diag_end_x', p.sensor_end_x, 'amber');
             led('diag_home_y', p.sensor_home_y);
             led('diag_home_z', p.sensor_home_z);
             led('diag_end_z', p.sensor_end_z, 'amber');
