@@ -893,28 +893,40 @@
                     <!-- X Axis -->
                     <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
                         <div class="section-label">X Axis</div>
-                        <div class="flex-row">
+                        <div class="flex-row" style="align-items:center;">
                             <input type="number" id="xPosInput" placeholder="X pos">
                             <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('X')">RUN</button>
-                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('X')">HOME</button>
+                            <div style="margin-left:auto; font-family:'Roboto Mono',monospace; font-size:11px; display:flex; gap:4px;">
+                                <span class="text-dim">ACT:</span>
+                                <span id="posX" class="text-white">---</span>
+                                <span class="text-dim">mm</span>
+                            </div>
                         </div>
                     </div>
                     <!-- Y Axis -->
                     <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
                         <div class="section-label">Y Axis</div>
-                        <div class="flex-row">
+                        <div class="flex-row" style="align-items:center;">
                             <input type="number" id="yPosInput" placeholder="Y pos">
                             <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('Y')">RUN</button>
-                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('Y')">HOME</button>
+                            <div style="margin-left:auto; font-family:'Roboto Mono',monospace; font-size:11px; display:flex; gap:4px;">
+                                <span class="text-dim">ACT:</span>
+                                <span id="posY" class="text-white">---</span>
+                                <span class="text-dim">mm</span>
+                            </div>
                         </div>
                     </div>
                     <!-- Z Axis -->
                     <div style="background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:8px;">
                         <div class="section-label">Z Axis</div>
-                        <div class="flex-row">
+                        <div class="flex-row" style="align-items:center;">
                             <input type="number" id="zPosInput" placeholder="Z pos">
                             <button class="btn btn-jog btn-cyan btn-abs" onclick="runAxis('Z')">RUN</button>
-                            <button class="btn btn-jog btn-amber btn-abs" onclick="homeAxis('Z')">HOME</button>
+                            <div style="margin-left:auto; font-family:'Roboto Mono',monospace; font-size:11px; display:flex; gap:4px;">
+                                <span class="text-dim">ACT:</span>
+                                <span id="posZ" style="color:var(--amber);">---</span>
+                                <span class="text-dim">mm</span>
+                            </div>
                         </div>
                     </div>
                     <!-- All Axes -->
@@ -1058,19 +1070,7 @@
                         style="font-size:10px;font-family:'Roboto Mono',monospace;border:1px solid rgba(252,196,25,0.4);color:var(--amber);background:rgba(20,21,23,0.85);padding:4px 10px;border-radius:4px;">IDLE</span>
                 </div>
 
-                <!-- Position readout -->
-                <div
-                    style="position:absolute;bottom:12px;right:12px;background:rgba(20,21,23,0.9);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'Roboto Mono',monospace;font-size:10px;z-index:10;min-width:160px;">
-                    <div
-                        style="color:var(--text-dim);margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px;">
-                        ACTUAL POSITIONS</div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>X:</span><span
-                            id="posX" class="text-white">---</span><span class="text-dim">mm</span></div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Y:</span><span
-                            id="posY" class="text-white">---</span><span class="text-dim">mm</span></div>
-                    <div style="display:flex;justify-content:space-between;color:var(--amber);"><span>Z:</span><span
-                            id="posZ" style="color:white;">---</span><span class="text-dim">mm</span></div>
-                </div>
+                <!-- Position readout removed (moved to Absolute Position Control) -->
 
                 <!-- SVG -->
                 <div
