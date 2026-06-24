@@ -769,6 +769,20 @@
         </div>
     </div>
 
+    <!-- Edit Coordinates -->
+    <div class="overlay" id="editSlotsOverlay" style="z-index:9000;">
+        <div class="login-box" style="width: 400px; max-width: 90vw; background: var(--dark); border: 1px solid var(--border);">
+            <h1 class="orbitron" style="font-size: 20px; margin-bottom: 20px; color: var(--cyan);">EDIT COORDINATES</h1>
+            <div id="editSlotsGrid" style="max-height: 400px; overflow-y: auto; text-align: left; margin-bottom: 20px; padding-right: 10px;">
+                <!-- JS will populate -->
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-amber" style="flex:1" onclick="closeEditSlots()">CANCEL</button>
+                <button class="btn btn-cyan" style="flex:1" onclick="saveEditSlots()">SAVE</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- ═══════════════════════════════════════════════════════════════
      TOPBAR
@@ -946,7 +960,10 @@
 
             <!-- Slot Map -->
             <div class="panel" style="flex-shrink:0;">
-                <div class="panel-header">9-SLOT RACK MAP</div>
+                <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    9-SLOT RACK MAP
+                    <button class="btn btn-cyan" style="padding: 4px 8px; font-size: 10px;" onclick="openEditSlots()">⚙️ EDIT</button>
+                </div>
                 <div class="panel-body">
                     <div class="slot-grid" id="slotGrid">
                         <!-- Row 3 (top) -->
@@ -1335,11 +1352,18 @@
             clientId: 'maint_' + Math.random().toString(16).substr(2, 8)
         };
 
-        const SLOTS = [
-            { x: 128, z: 23 }, { x: 271, z: 23 }, { x: 415, z: 23 },
-            { x: 127, z: 168 }, { x: 272, z: 168 }, { x: 415, z: 168 },
-            { x: 127, z: 313 }, { x: 274, z: 313 }, { x: 415, z: 313 }
+        const defaultSlots = [
+            { x: 128, z: 23 }, { x: 273, z: 23 }, { x: 416, z: 23 },
+            { x: 128, z: 168 }, { x: 272, z: 168 }, { x: 415, z: 168 },
+            { x: 129, z: 313 }, { x: 274, z: 313 }, { x: 416, z: 313 }
         ];
+
+        let SLOTS;
+        try {
+            SLOTS = JSON.parse(localStorage.getItem('maint_slots')) || defaultSlots;
+        } catch(e) {
+            SLOTS = defaultSlots;
+        }
 
         const USERS = { operator: '1234', engineer: '1234', admin: '1234' };
 
@@ -1635,6 +1659,51 @@
             }
         }
 
+        // ── EDIT SLOTS ────────────────────────────────────────────────────────────────
+        function renderSlotButtons() {
+            for(let i=0; i<9; i++) {
+                const btn = document.getElementById(`sbtn${i}`);
+                if (btn) {
+                    const span = btn.querySelector('.slot-btn-sub');
+                    if (span) span.textContent = `X${SLOTS[i].x} Z${SLOTS[i].z}`;
+                }
+            }
+        }
+
+        function openEditSlots() {
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            let html = '';
+            for(let i=0; i<9; i++) {
+                html += `
+                <div style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                    <div style="color: var(--cyan); font-weight: bold; margin-bottom: 4px;">Slot ${i}</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="edit_x_${i}" value="${SLOTS[i].x}" placeholder="X" style="flex:1">
+                        <input type="number" id="edit_z_${i}" value="${SLOTS[i].z}" placeholder="Z" style="flex:1">
+                    </div>
+                </div>`;
+            }
+            document.getElementById('editSlotsGrid').innerHTML = html;
+            document.getElementById('editSlotsOverlay').classList.add('show');
+        }
+
+        function closeEditSlots() {
+            document.getElementById('editSlotsOverlay').classList.remove('show');
+        }
+
+        function saveEditSlots() {
+            for(let i=0; i<9; i++) {
+                const x = Number(document.getElementById(`edit_x_${i}`).value);
+                const z = Number(document.getElementById(`edit_z_${i}`).value);
+                SLOTS[i] = { x, z };
+            }
+            localStorage.setItem('maint_slots', JSON.stringify(SLOTS));
+            renderSlotButtons();
+            drawSlotBoxes();
+            closeEditSlots();
+            logEvent('INFO', 'Slot coordinates updated and saved');
+        }
+
         // ── GOTO SLOT ──────────────────────────────────────────────────────────────────
         function cmdGoToSlot(idx) {
             if (!S.mode.manual || S.mode.estop) return;
@@ -1895,6 +1964,8 @@
             if (!mqttClient) setupMQTT();
             if (!chart) initChart();
             updateModeUI();
+            renderSlotButtons();
+            if (typeof drawSlotBoxes === 'function') drawSlotBoxes();
             // Initial alarm: axes not homed
             raiseAlarm('16#8001', 'WARNING', 'System startup \u2014 axes not homed');
             logEvent('INFO', 'Maintenance Console initialized (Auto Admin)');
