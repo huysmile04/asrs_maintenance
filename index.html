@@ -938,6 +938,7 @@
                     <div style="padding-top:4px;">
                         <div class="flex-row">
                             <button class="btn btn-jog btn-abs" style="background:rgba(32, 201, 151, 0.1); color:var(--cyan); border-color:var(--cyan);" onclick="runAllAxes()">RUN ALL XYZ</button>
+                            <button class="btn btn-jog btn-abs" style="background:rgba(250, 82, 82, 0.1); color:var(--red); border-color:var(--red);" onclick="homeAllAxes()">HOME ALL</button>
                         </div>
                     </div>
                 </div>
@@ -993,7 +994,7 @@
 
             <!-- Emergency controls -->
             <div style="flex-shrink:0; display:flex; flex-direction:column; gap:6px; margin-top:auto; padding-top:4px;">
-                <!-- Homing button removed -->
+                <button class="btn btn-cyan" style="padding:10px;" onclick="cmdHoming()">🏠 HOMING ALL AXES</button>
                 <button class="btn btn-amber" style="padding:10px;" onclick="cmdReset()">RESET FAULTS</button>
                 <button class="btn-estop orbitron" onclick="cmdEStop()">⛔ EMERGENCY STOP</button>
             </div>
@@ -1607,7 +1608,10 @@
         }
 
         function homeAllAxes() {
-            // Function logic removed as per user request
+            if (!S.mode.manual || S.mode.estop) return;
+            if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
+            mqttPublish('warehouse/command', { action: 'HOME_ALL' });
+            logEvent('INFO', `Home All XYZ`);
         }
 
         // ── CONVEYOR ──────────────────────────────────────────────────────────────────
