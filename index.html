@@ -769,6 +769,18 @@
         </div>
     </div>
 
+    <!-- System Alarm -->
+    <div class="overlay" id="sysAlarmOverlay" style="z-index:9600;">
+        <div class="estop-box">
+            <div
+                style="font-size:56px; color:var(--red); font-weight:800; font-family:'Orbitron',sans-serif; margin-bottom:16px;">
+                SYSTEM ERROR</div>
+            <div id="sysAlarmReason" style="color:white; font-size:18px; margin-bottom:28px;">Hệ thống đã dừng khẩn cấp do lỗi hệ thống.</div>
+            <button class="btn btn-red" style="padding:12px 32px; font-size:14px;" onclick="cmdReset()">XÁC NHẬN /
+                RESET FAULTS</button>
+        </div>
+    </div>
+
     <!-- Edit Coordinates -->
     <div class="overlay" id="editSlotsOverlay" style="z-index:9000;">
         <div class="login-box" style="width: 400px; max-width: 90vw; background: var(--dark); border: 1px solid var(--border);">
@@ -1011,7 +1023,6 @@
 
             <!-- Emergency controls -->
             <div style="flex-shrink:0; display:flex; flex-direction:column; gap:6px; margin-top:auto; padding-top:4px;">
-                <button class="btn btn-cyan" style="padding:10px;" onclick="cmdHoming()">🏠 HOMING ALL AXES</button>
                 <button class="btn btn-amber" style="padding:10px;" onclick="cmdReset()">RESET FAULTS</button>
                 <button class="btn-estop orbitron" onclick="cmdEStop()">⛔ EMERGENCY STOP</button>
             </div>
@@ -1509,10 +1520,33 @@
         }
 
         // ── PLC DATA ──────────────────────────────────────────────────────────────────
+        function triggerSystemAlarm(reason) {
+            if (S.mode.estop) return; // Đã dừng khẩn cấp rồi
+            S.mode.estop = true;
+            document.getElementById('sysAlarmReason').textContent = reason;
+            document.getElementById('sysAlarmOverlay').classList.add('show');
+            mqttPublish('warehouse/command', { action: 'ESTOP' });
+            raiseAlarm('SYS', 'CRITICAL', reason);
+            logEvent('CRITICAL', reason);
+        }
+
         function handlePlcData(d) {
             // Copy to state
             Object.assign(S.plc, d);
             S.plc.connected = true;
+
+            // Check System Error / Limits
+            if (!S.mode.estop) {
+                if (d.alarm) {
+                    triggerSystemAlarm("Lỗi hệ thống: PLC Alarm bật (Offset 30.0)!");
+                } else if (typeof d.pos_x === 'number' && (d.pos_x < 0 || d.pos_x > 420)) {
+                    triggerSystemAlarm(`Vượt giới hạn trục X! (X=${d.pos_x}mm, Limit: 0-420)`);
+                } else if (typeof d.pos_y === 'number' && (d.pos_y < 0 || d.pos_y > 120)) {
+                    triggerSystemAlarm(`Vượt giới hạn trục Y! (Y=${d.pos_y}mm, Limit: 0-120)`);
+                } else if (typeof d.pos_z === 'number' && (d.pos_z < 0 || d.pos_z > 375)) {
+                    triggerSystemAlarm(`Vượt giới hạn trục Z! (Z=${d.pos_z}mm, Limit: 0-375)`);
+                }
+            }
 
             // Check E-Stop bit from PLC
             if (d.cmd_estop && !S.mode.estop) {
@@ -1736,6 +1770,7 @@
             if (!checkPerm('Engineer')) { alert('Engineer access required.'); return; }
             S.mode.estop = false;
             document.getElementById('estopOverlay').classList.remove('show');
+            document.getElementById('sysAlarmOverlay').classList.remove('show');
             mqttPublish('warehouse/command', { action: 'RESET' });
             S.alarms.forEach(a => a.active = false);
             updateAlarmUI();
