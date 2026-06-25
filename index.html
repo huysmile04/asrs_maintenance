@@ -1649,14 +1649,22 @@
 
             // Check System Error / Limits
             if (!S.mode.estop) {
-                if (d.alarm) {
-                    triggerSystemAlarm("Hệ thống phát hiện lỗi vượt quá hành trình của trục.");
+                if (d.err_sw_x) {
+                    triggerSystemAlarm("Lỗi trục X (Ngang): Vượt quá giới hạn hành trình mềm (SW Limit).");
+                } else if (d.err_sw_y) {
+                    triggerSystemAlarm("Lỗi trục Y (Nĩa): Vượt quá giới hạn hành trình mềm (SW Limit).");
+                } else if (d.err_sw_z1) {
+                    triggerSystemAlarm("Lỗi trục Z1 (Nâng trái): Vượt quá giới hạn hành trình mềm (SW Limit).");
+                } else if (d.err_sw_z2) {
+                    triggerSystemAlarm("Lỗi trục Z2 (Nâng phải): Vượt quá giới hạn hành trình mềm (SW Limit).");
+                } else if (d.alarm) {
+                    triggerSystemAlarm("Hệ thống phát hiện lỗi báo động chung từ PLC.");
                 } else if (typeof d.pos_x === 'number' && (d.pos_x < -10 || d.pos_x > 420)) {
-                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục X.`);
+                    triggerSystemAlarm(`Cảnh báo Web: Trục X vượt ngưỡng tọa độ an toàn.`);
                 } else if (typeof d.pos_y === 'number' && (d.pos_y < -10 || d.pos_y > 120)) {
-                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục Y.`);
+                    triggerSystemAlarm(`Cảnh báo Web: Trục Y vượt ngưỡng tọa độ an toàn.`);
                 } else if (typeof d.pos_z === 'number' && (d.pos_z < -10 || d.pos_z > 375)) {
-                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục Z.`);
+                    triggerSystemAlarm(`Cảnh báo Web: Trục Z vượt ngưỡng tọa độ an toàn.`);
                 }
             }
 
