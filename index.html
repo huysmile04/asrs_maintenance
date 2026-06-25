@@ -888,7 +888,7 @@
             <div class="sys-alarm-divider"></div>
             <div id="sysAlarmReason" class="sys-alarm-reason">Lỗi không xác định</div>
             <button class="sys-alarm-btn" style="font-family: 'Inter', sans-serif;" onclick="cmdReset()">
-                <span>XÁC NHẬN / RESET FAULTS</span>
+                <span>ACKNOWLEDGE / RESET FAULTS</span>
             </button>
         </div>
     </div>
@@ -1650,7 +1650,7 @@
             // Check System Error / Limits
             if (!S.mode.estop) {
                 if (d.alarm) {
-                    triggerSystemAlarm("Hệ thống phát hiện lỗi từ PLC (Alarm Bit).");
+                    triggerSystemAlarm("Hệ thống phát hiện lỗi vượt quá hành trình của trục.");
                 } else if (typeof d.pos_x === 'number' && (d.pos_x < -10 || d.pos_x > 420)) {
                     triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục X.`);
                 } else if (typeof d.pos_y === 'number' && (d.pos_y < -10 || d.pos_y > 120)) {
