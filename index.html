@@ -1844,10 +1844,14 @@
                 SLOTS[i] = { x, z };
             }
             localStorage.setItem('maint_slots', JSON.stringify(SLOTS));
+            
+            // Publish the new slots to the backend to write to PLC DB13
+            mqttPublish('warehouse/command', { action: 'UPDATE_SLOTS', slots: SLOTS });
+
             renderSlotButtons();
             drawSlotBoxes();
             closeEditSlots();
-            logEvent('INFO', 'Slot coordinates updated and saved');
+            logEvent('INFO', 'Slot coordinates updated to Web and PLC');
         }
 
         // ── GOTO SLOT ──────────────────────────────────────────────────────────────────
