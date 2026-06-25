@@ -887,8 +887,7 @@
             <div class="sys-alarm-subtitle">Hệ thống dừng khẩn cấp</div>
             <div class="sys-alarm-divider"></div>
             <div id="sysAlarmReason" class="sys-alarm-reason">Lỗi không xác định</div>
-            <button class="sys-alarm-btn orbitron" onclick="cmdReset()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.13 15.57a10 10 0 1 0 4.24-11.85L2 6"/></svg>
+            <button class="sys-alarm-btn" style="font-family: 'Inter', sans-serif;" onclick="cmdReset()">
                 <span>XÁC NHẬN / RESET FAULTS</span>
             </button>
         </div>
@@ -1653,11 +1652,11 @@
                 if (d.alarm) {
                     triggerSystemAlarm("Hệ thống phát hiện lỗi từ PLC (Alarm Bit).");
                 } else if (typeof d.pos_x === 'number' && (d.pos_x < -10 || d.pos_x > 420)) {
-                    triggerSystemAlarm(`Vượt giới hạn hành trình trục X (Ngang).`);
+                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục X.`);
                 } else if (typeof d.pos_y === 'number' && (d.pos_y < -10 || d.pos_y > 120)) {
-                    triggerSystemAlarm(`Vượt giới hạn hành trình trục Y (Nĩa).`);
+                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục Y.`);
                 } else if (typeof d.pos_z === 'number' && (d.pos_z < -10 || d.pos_z > 375)) {
-                    triggerSystemAlarm(`Vượt giới hạn hành trình trục Z (Nâng).`);
+                    triggerSystemAlarm(`Hệ thống phát hiện lỗi vượt quá hành trình của trục Z.`);
                 }
             }
 
